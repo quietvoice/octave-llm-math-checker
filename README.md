@@ -1,7 +1,7 @@
 # octave-llm-math-checker
 This checks the output of LLM to be true or not in mathematics by using Octave to verify it.
 
-It did not work as expected using OpenAI's GPT-4o, but with other models, the results may change. (I hope it does too.) 
+It did not work as expected using OpenAI's GPT-4o, but with other models, the results may change. (We hope it does too.) 
 
 This is a experiment, and we look forward for people forking it or doing on other models using Ollama etc.
 
