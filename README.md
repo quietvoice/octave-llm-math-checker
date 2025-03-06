@@ -97,4 +97,6 @@ Therefore, the error lies in Statement 2, where "9.9 > 9.11" should actually be 
 As we can see from this experiment, there needs to be improvement than just using Octave as a mathematical checking tool for LLM's mathematical ability since the evaluation done by the LLM is wrong in this case. Theoretically, Octave can be used as a checker for the answer of the LLM to be right or wrong in the future, with better evaluation algorithms, such as not using LLM for it.
 ```
 
+We are hoping these scripts will help make a supervised learning system to train a model to a smarter LLM model in mathematics field.
+
 (C)Tsubasa Kato - Curioforce Corporation 2025/3/6 18:46AM
