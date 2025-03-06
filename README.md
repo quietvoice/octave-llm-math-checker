@@ -4,6 +4,7 @@ This checks the output of LLM to be true or not in mathematics by using Octave t
 It did not work as expected using OpenAI's GPT-4o, but with other models, the results may change. (We hope it does too.) 
 
 This is a experiment, and we look forward for people forking it or doing on other models using Ollama etc.
+Update: Ollama Test Version has been uploaded. It is under the ollama folder.
 
 On an experiment we did by trying to use Octave as a verification tool to check the answer of a LLM math problem that is hard to solve by current LLM. We used GPT-4o for the experiment. The date of this experiment took place on 3/6/2025 around 7:54AM JST.
 
