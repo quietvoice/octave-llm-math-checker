@@ -1,4 +1,88 @@
 # octave-llm-math-checker
+
+Deterministic math checker for agents. The original experiment asked a second LLM whether Octave was “right”; that failed (see below). This repo now ships a working **MCP server** that judges claims itself and prints **RIGHT** or **WRONG**.
+
+## Math-check MCP
+
+Install:
+
+```bash
+pip install -e .
+# optional live x402 settlement
+pip install -e ".[x402]"
+```
+
+Run over stdio (Cursor / Claude Desktop):
+
+```bash
+python -m math_check_mcp
+```
+
+Cursor `mcp.json` snippet:
+
+```json
+{
+  "mcpServers": {
+    "math-check": {
+      "command": "python",
+      "args": ["-m", "math_check_mcp"]
+    }
+  }
+}
+```
+
+Tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `math_check` | Judge a claim (`9.9 > 9.11`, `2+2=4`, `9.9 is greater than 9.11`) as **RIGHT** or **WRONG** |
+| `math_eval` | Evaluate an expression |
+| `math_compare` | Compare two sides with `>`, `<`, `==`, … |
+| `x402_status` | Whether the optional x402 paywall is on (always free) |
+
+CLI without MCP:
+
+```bash
+python -m math_check_mcp.checker "9.9 > 9.11"
+python -m math_check_mcp.checker "2+2=4"
+```
+
+`9.9 > 9.11` is **RIGHT** (9.9 is larger). `9.11 > 9.9` is **WRONG**. Literals are parsed as Decimal so this is not the version-string / LLM trap.
+
+### Optional `--x402`
+
+Paywall the math tools with the [x402 MCP transport](https://github.com/x402-foundation/x402/blob/main/specs/transports-v2/mcp.md):
+
+```bash
+python -m math_check_mcp --x402
+```
+
+Unpaid `math_*` calls return `isError` plus a `PaymentRequired` object (`x402Version`, `accepts`, `resource`). Retry with `_meta["x402/payment"]`.
+
+Mock mode (default with `--x402`, no chain):
+
+```json
+{"x402Version": 2, "payload": {"mock": true}}
+```
+
+Live facilitator settlement:
+
+```bash
+python -m math_check_mcp --x402 --x402-live --x402-pay-to 0xYourAddress
+```
+
+Requires `pip install "x402[evm]"` and a receiver address (`--x402-pay-to` or `X402_PAY_TO`). Defaults to USDC on Base Sepolia (`eip155:84532`) at `$0.01`. `x402_status` stays free.
+
+HTTP transports (for remote / x402 clients):
+
+```bash
+python -m math_check_mcp --transport sse --port 4022 --x402
+```
+
+Roadmap: see `future-plans.txt`.
+
+---
+
 This checks the output of LLM to be true or not in mathematics by using Octave to verify it.
 
 It did not work as expected using OpenAI's GPT-4o, but with other models, the results may change. (We hope it does too.) 
