@@ -1,0 +1,197 @@
+octave-llm-math-checker — Future Plans
+=======================================
+(C) Curioforce Corporation — planning draft
+Status: ideation / next-iteration roadmap
+Related experiment: GPT-4o + Octave on "9.11 vs 9.9" (2025/3/6)
+
+Core lesson from v0.1
+---------------------
+Octave can act as ground truth for numeric / symbolic checks, but piping
+both the LLM answer and the Octave result back into another LLM for
+"does this match?" reintroduces the same failure mode. The next iteration
+must treat Octave (or another CAS) as the judge, not as a witness for a
+second model to reinterpret.
+
+
+========================================================================
+1. NEXT ITERATION — MATH CHECK LOGIC
+========================================================================
+
+1.1 Deterministic verifier (priority)
+  - Extract candidate claims from LLM output: inequalities, equalities,
+    numeric answers, closed-form expressions, units.
+  - Normalize locale traps (Japanese/European decimal commas, full-width
+    digits, "9.11" vs version-string sorting confusion).
+  - Compile each claim into a safe Octave (or SymPy) expression.
+  - Evaluate under a sandbox: timeout, no file I/O, no system(), memory
+    cap. Return structured verdict: {claim, octave_expr, ans, pass|fail|unknown}.
+  - Do NOT ask an LLM whether Octave was "right." Map ans=1/0 (or numeric
+    tolerance) in code.
+
+1.2 Claim extraction pipeline
+  - Stage A (cheap): regex / AST for obvious math (a > b, a == b, = N).
+  - Stage B (optional LLM): propose Octave formulas only; never decide truth.
+  - Stage C: schema-validate proposed formulas against a whitelist of
+    Octave functions (ops, abs, sqrt, sin, solve, etc.).
+  - Stage D: run Octave; attach confidence = high if Stage A, medium if B.
+
+1.3 Multi-engine cross-check
+  - Primary: GNU Octave
+  - Secondary: SymPy / mpmath for exact rationals and high precision
+  - Optional: Wolfram Engine / Mathematica where licensed
+  - Agreement rule: all engines that succeed must agree within epsilon;
+    disagreement → unknown + human/agent review flag.
+
+1.4 Problem classes to support (phased)
+  Phase 1: comparisons, arithmetic, elementary algebra
+  Phase 2: systems of equations, matrices, eigenvalues
+  Phase 3: calculus (diff/int numeric + symbolic), ODEs
+  Phase 4: probability / statistics identities, interval arithmetic
+  Phase 5: proofs-lite (rewrite steps; check each step's local equality)
+
+1.5 Dataset & supervised learning loop (README goal)
+  - Log triples: (question, model_answer, octave_verdict)
+  - Build preference / DPO pairs: correct Octave-backed answers vs wrong
+  - Fine-tune small math models (DeepSeek-Math class) with rejection
+    sampling: only keep samples that pass the deterministic verifier
+  - Publish a public "math-check bench" subset for forks / Ollama users
+
+1.6 Multilingual robustness
+  - Explicit tests for JP/EN/CN prompts on decimal and magnitude traps
+  - Locale-normalization library shared by CLI and MCP
+
+
+========================================================================
+2. PRODUCT SHAPE — MATH CHECK AS AN MCP FOR AGENTS
+========================================================================
+
+Why MCP
+  Agents already call tools. Math hallucination is a common failure.
+  Exposing a deterministic CAS verifier as Model Context Protocol tools
+  lets Cursor / Claude / custom agents ground math without trusting the
+  chat model’s self-check.
+
+Proposed server: math-check-mcp (working name)
+  Transport: stdio MCP server (Python or TypeScript wrapper around Octave)
+  Runtime deps: octave-cli (+ optional sympy), sandbox helper
+
+Tools (v1)
+  - math_eval(expression) → raw Octave/SymPy result + stderr
+  - math_compare(a, b, op?) → boolean + normalized floats
+  - math_verify_claim(natural_language_or_latex, optional_formula)
+      → {verdict, engines, evidence}
+  - math_check_answer(question, model_answer)
+      → extract claims → verify each → overall pass/fail/partial
+  - math_solve(problem_spec) → engine solution (agent may use as hint,
+      still verified separately)
+
+Resources / prompts
+  - resource: known pitfalls (version-string decimals, float eps)
+  - prompt template: "Before finalizing numeric claims, call math_check_answer"
+
+Safety
+  - Expression allowlist; reject shell metacharacters and Octave pkg load
+  - Per-call CPU/wall timeout; concurrent request limit
+  - No network from Octave process
+
+Packaging
+  - npm/pip installable + Docker image with Octave preinstalled
+  - Cursor mcp.json snippet in README
+  - Ollama-friendly local mode (no cloud required)
+
+Agent UX
+  - Return machine-readable JSON always; short human summary optional
+  - Structured errors: parse_error | engine_error | timeout | unsupported
+
+Roadmap for MCP
+  M0: math_eval + math_compare only (parity with current scripts)
+  M1: math_check_answer with Stage A extraction (no LLM judge)
+  M2: optional LLM formula proposer behind a flag
+  M3: batch verify for RL / dataset pipelines
+  M4: hosted SaaS endpoint with same tool schema (see §3)
+
+
+========================================================================
+3. MONETIZATION IDEAS (PRODUCT + ADJACENT)
+========================================================================
+
+A. Math Check MCP / API (direct)
+  - Free: local open-source MCP (growth / trust)
+  - Pro: hosted API — higher QPS, SymPy+Octave+precision, audit logs
+  - Team: org keys, SSO, usage dashboards, private problem packs
+  - Pricing sketch: free tier N checks/day; usage-based after; seat fee
+    for Cursor/Claude Desktop teams that want managed Octave images
+
+B. Agent reliability add-on for verticals
+  - Finance agents: unit-aware arithmetic, basis-point checks
+  - EdTech: homework graders that never mark 9.9 > 9.11 wrong
+  - Research copilots: equation consistency across paper drafts
+  Sell as "ground-truth math tool" plug-in, not another chatbot
+
+C. Verified-math dataset & fine-tunes
+  - License curated (question, wrong_answer, correct_answer, proof_trace)
+    datasets to labs
+  - Sell or open-core a "math-verified" small model checkpoint trained
+    only on verifier-passed samples
+  - Consulting: custom benches for enterprise LLM evals
+
+D. Compliance / audit trail
+  - Signed verification receipts (hash of expression + engine + result)
+  - Useful for regulated industries that must show how a number was checked
+  - Premium feature on hosted MCP
+
+E. Marketplace listing
+  - Publish on MCP directories / agent tool stores with freemium listing
+  - Affiliate: cloud Octave/compute credits for heavy users
+
+F. Adjacent Curioforce products (portfolio)
+  - "Locale-safe numerics" library (JP/EU decimal & sorting traps) as
+    standalone npm/pip — freemium with support contract
+  - Ollama math-check kit: one-click compose (Ollama + Octave + MCP)
+    for offline schools / labs; paid support & classroom licenses
+  - Workshop / course: "Building deterministic tools for agents" —
+    lead-gen into Pro API
+
+G. What not to monetize early
+  - Do not charge for the core idea of "Octave as judge" while the
+    open experiment builds reputation; charge for hosting, scale,
+    vertical packs, and SLAs
+
+
+========================================================================
+4. SUGGESTED BUILD ORDER
+========================================================================
+
+  1. Refactor send_to_octave into a library with sandbox + JSON I/O
+  2. Implement deterministic compare/verify without LLM-as-judge
+  3. Wrap as math-check-mcp (stdio) with math_eval / math_compare
+  4. Add math_check_answer (regex extraction first)
+  5. Golden tests: 9.9 vs 9.11 (EN+JP), float eps, matrix cases
+  6. Document Cursor / Claude Desktop install
+  7. Soft-launch hosted API behind same schema
+  8. Start logging anonymized fail cases → dataset → fine-tune loop
+
+
+========================================================================
+5. SUCCESS METRICS
+========================================================================
+
+  - Verifier accuracy on a fixed trap set (incl. 9.11/9.9) = 100%
+  - Zero reliance on LLM for final true/false in default mode
+  - MCP install-to-first-verify < 5 minutes on a clean machine
+  - Agent tool-call reduce math factual errors on internal bench by X%
+  - Paying conversion: free MCP users → Pro API or Team seats
+
+
+========================================================================
+6. OPEN QUESTIONS
+========================================================================
+
+  - SymPy-only vs Octave-first for easiest MCP packaging on Windows?
+  - How much NL claim extraction without an LLM is "good enough" for v1?
+  - License compatibility (GPL Octave vs commercial redistribution)?
+  - Should math_solve be exposed to agents, or only verify (safer)?
+
+
+End of draft — iterate as experiments land.
+)
